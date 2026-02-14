@@ -72,4 +72,4 @@ Le nombre d'articles par page du flux RSS dépend du réglage WordPress **Régla
 
 ## Licence
 
-MIT
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr)
