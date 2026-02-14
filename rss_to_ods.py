@@ -14,7 +14,7 @@ import argparse
 import re
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from html import unescape
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs, urlencode
@@ -61,6 +61,28 @@ def format_date(date_str: str) -> str:
         return dt.strftime("%d/%m/%Y")
     except (ValueError, TypeError):
         return date_str or ""
+
+
+def parse_pub_date(date_str: str) -> datetime | None:
+    """Parse une date RSS en objet datetime pour comparaison."""
+    try:
+        return datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z")
+    except (ValueError, TypeError):
+        return None
+
+
+def parse_user_date(date_str: str) -> datetime:
+    """Parse une date utilisateur JJ/MM/AAAA ou AAAA-MM-JJ."""
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            return dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Format de date invalide : '{date_str}'. "
+        f"Utilisez JJ/MM/AAAA ou AAAA-MM-JJ."
+    )
 
 
 def build_paged_url(base_url: str, page: int) -> str:
@@ -139,10 +161,23 @@ def fetch_all_entries(url: str, paginate: bool = True, max_items: int | None = N
     return all_entries
 
 
-def parse_entries(entries: list) -> list[dict]:
-    """Transforme les entrées feedparser en lignes structurées."""
+def parse_entries(entries: list, date_from: datetime | None = None,
+                  date_to: datetime | None = None) -> list[dict]:
+    """Transforme les entrées feedparser en lignes structurées, avec filtre par date."""
     rows = []
+    skipped = 0
     for entry in entries:
+        # Filtrage par date
+        if date_from or date_to:
+            pub = parse_pub_date(entry.get("published", ""))
+            if pub:
+                if date_from and pub < date_from:
+                    skipped += 1
+                    continue
+                if date_to and pub > date_to.replace(hour=23, minute=59, second=59):
+                    skipped += 1
+                    continue
+
         categories = [tag.term for tag in getattr(entry, "tags", [])]
         cats = (categories + [""] * MAX_CATEGORIES)[:MAX_CATEGORIES]
 
@@ -155,6 +190,9 @@ def parse_entries(entries: list) -> list[dict]:
             "categories": cats,
             "date": format_date(entry.get("published", "")),
         })
+
+    if skipped:
+        print(f"📅 {skipped} articles hors de la plage de dates (ignorés)")
 
     return rows
 
@@ -293,7 +331,30 @@ def main():
         default=DELAY_BETWEEN_PAGES,
         help=f"Délai entre les pages en secondes (défaut : {DELAY_BETWEEN_PAGES})"
     )
+    parser.add_argument(
+        "--from", dest="date_from",
+        type=str, default=None,
+        help="Date de début (JJ/MM/AAAA ou AAAA-MM-JJ). Ex : 25/04/2025"
+    )
+    parser.add_argument(
+        "--to", dest="date_to",
+        type=str, default=None,
+        help="Date de fin (JJ/MM/AAAA ou AAAA-MM-JJ). Ex : 14/02/2026"
+    )
     args = parser.parse_args()
+
+    # Parsing des dates
+    date_from = parse_user_date(args.date_from) if args.date_from else None
+    date_to = parse_user_date(args.date_to) if args.date_to else None
+
+    if date_from and date_to and date_from > date_to:
+        print("❌ La date --from doit être antérieure à --to.", file=sys.stderr)
+        sys.exit(1)
+
+    if date_from or date_to:
+        f = date_from.strftime("%d/%m/%Y") if date_from else "…"
+        t = date_to.strftime("%d/%m/%Y") if date_to else "…"
+        print(f"📅 Filtre : du {f} au {t}")
 
     entries = fetch_all_entries(
         args.url,
@@ -308,7 +369,7 @@ def main():
 
     print(f"\n📰 Total : {len(entries)} articles récupérés")
 
-    rows = parse_entries(entries)
+    rows = parse_entries(entries, date_from=date_from, date_to=date_to)
     create_ods(rows, args.output)
 
 
