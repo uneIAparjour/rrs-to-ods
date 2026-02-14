@@ -3,6 +3,19 @@ name: Génération ODS depuis RSS
 on:
   # Exécution manuelle uniquement
   workflow_dispatch:
+    inputs:
+      date_from:
+        description: "📅 Date de début (JJ/MM/AAAA) — laisser vide pour tout récupérer"
+        required: false
+        default: ""
+      date_to:
+        description: "📅 Date de fin (JJ/MM/AAAA) — laisser vide = aujourd'hui"
+        required: false
+        default: ""
+      max_articles:
+        description: "📊 Nombre max d'articles (laisser vide = tous)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -26,7 +39,18 @@ jobs:
       - name: Générer le fichier ODS
         run: |
           mkdir -p output
-          python rss_to_ods.py -o output/uneiaparjour.ods
+          CMD="python rss_to_ods.py -o output/uneiaparjour.ods"
+          if [ -n "${{ github.event.inputs.date_from }}" ]; then
+            CMD="$CMD --from '${{ github.event.inputs.date_from }}'"
+          fi
+          if [ -n "${{ github.event.inputs.date_to }}" ]; then
+            CMD="$CMD --to '${{ github.event.inputs.date_to }}'"
+          fi
+          if [ -n "${{ github.event.inputs.max_articles }}" ]; then
+            CMD="$CMD --max ${{ github.event.inputs.max_articles }}"
+          fi
+          echo "🚀 $CMD"
+          eval $CMD
 
       - name: Commit et push
         run: |
