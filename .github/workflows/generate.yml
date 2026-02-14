@@ -1,0 +1,35 @@
+name: Génération ODS depuis RSS
+
+on:
+  # Exécution manuelle uniquement
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Générer le fichier ODS
+        run: python rss_to_ods.py -o output/uneiaparjour.ods
+
+      - name: Commit et push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/uneiaparjour.ods
+          git diff --cached --quiet || git commit -m "🔄 Mise à jour ODS — $(date -u +'%d/%m/%Y %H:%M UTC')"
+          git push
