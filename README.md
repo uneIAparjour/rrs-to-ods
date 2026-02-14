@@ -1,13 +1,13 @@
-# RSS → ODS : Une IA par jour
+# RSS → ODS : uneIAparjour
 
 Script Python qui récupère **l'intégralité** du flux RSS paginé de [uneiaparjour.fr](https://www.uneiaparjour.fr/) (~1000 articles) et génère un fichier ODS structuré avec 10 colonnes :
 
-| Titre | Description | URL | Cat. 1 | Cat. 2 | Cat. 3 | Cat. 4 | Cat. 5 | Cat. 6 | Date |
+| Titre | Description | URL sur le site | Cat. 1 | Cat. 2 | Cat. 3 | Cat. 4 | Cat. 5 | Cat. 6 | Date |
 |-------|-------------|-----|--------|--------|--------|--------|--------|--------|------|
 
 ## Fonctionnement
 
-Le script pagine automatiquement le flux WordPress (`/feed/?paged=1`, `?paged=2`, etc.) jusqu'à récupérer tous les articles. Un délai de politesse de 1 seconde est respecté entre chaque page. Les doublons sont détectés et ignorés.
+Le script pagine automatiquement le flux WordPress (`/feed/?paged=1`, `?paged=2`, etc.) jusqu'à récupérer tous les articles. Un délai de 1 seconde est respecté entre chaque page. Les doublons sont détectés et ignorés.
 
 ## Installation
 
@@ -51,14 +51,14 @@ python rss_to_ods.py -u https://example.com/feed/ -o autre.ods
 
 ## Automatisation GitHub Actions
 
-Le workflow `.github/workflows/generate.yml` exécute le script **tous les jours à 7h UTC** et commit le fichier ODS dans `output/`.
+Le workflow `.github/workflows/generate.yml` exécute le script et génère le fichier ODS dans `output/`.
 
 Pour l'activer :
 1. Pousser le dépôt sur GitHub
-2. Aller dans **Actions** et activer les workflows
+2. Lancement manuel via **Actions → Génération ODS depuis RSS → Run workflow**.
 3. Le fichier `output/uneiaparjour.ods` sera automatiquement mis à jour
 
-Lancement manuel possible via **Actions → Génération ODS depuis RSS → Run workflow**.
+
 
 ## Prérequis
 
