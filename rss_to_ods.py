@@ -179,6 +179,12 @@ def parse_entries(entries: list, date_from: datetime | None = None,
                     continue
 
         categories = [tag.term for tag in getattr(entry, "tags", [])]
+
+        # Exclure les articles de la catégorie "Focus Lettre"
+        if any(c.lower() in ("focus lettre", "focus-lettre") for c in categories):
+            skipped += 1
+            continue
+
         cats = (categories + [""] * MAX_CATEGORIES)[:MAX_CATEGORIES]
 
         rows.append({
