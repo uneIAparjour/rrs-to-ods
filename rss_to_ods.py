@@ -8,6 +8,7 @@ Usage :
     python rss_to_ods.py -u https://example.com/feed/ -o mon_fichier.ods
     python rss_to_ods.py --max 50                  # Limiter à 50 articles
     python rss_to_ods.py --no-paginate             # Ne pas paginer (page 1 uniquement)
+    python rss_to_ods.py --from 25/04/2025 --to 14/02/2026 -o rattrapage.ods
 """
 
 import argparse
@@ -52,6 +53,32 @@ def strip_html(html_text: str) -> str:
     text = unescape(text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()
+
+
+def extract_first_paragraph(entry: dict) -> str:
+    """
+    Extrait le premier paragraphe de content:encoded (texte complet),
+    avec fallback sur la description tronquée du RSS.
+    """
+    content = ""
+
+    # feedparser stocke content:encoded dans entry.content
+    if hasattr(entry, "content") and entry.content:
+        content = entry.content[0].get("value", "")
+
+    # Fallback sur description si content:encoded absent
+    if not content:
+        content = entry.get("description", "") or entry.get("summary", "")
+
+    # Extraire le premier <p>...</p> non vide
+    matches = re.findall(r"<p[^>]*>(.*?)</p>", content, re.DOTALL | re.IGNORECASE)
+    for match in matches:
+        text = strip_html(match)
+        if text:
+            return text
+
+    # Fallback : texte brut complet
+    return strip_html(content)
 
 
 def format_date(date_str: str) -> str:
@@ -126,7 +153,7 @@ def fetch_all_entries(url: str, paginate: bool = True, max_items: int | None = N
             print(f"   → Fin de la pagination (page {page} vide)")
             break
 
-        # Détection de fin : HTTP 404 ou redirection vers page d'erreur
+        # Détection de fin : HTTP 404
         if hasattr(feed, "status") and feed.status == 404:
             print(f"   → Fin de la pagination (404)")
             break
@@ -189,16 +216,14 @@ def parse_entries(entries: list, date_from: datetime | None = None,
 
         rows.append({
             "titre": entry.get("title", ""),
-            "description": strip_html(
-                entry.get("description", "") or entry.get("summary", "")
-            ),
+            "description": extract_first_paragraph(entry),
             "url": entry.get("link", ""),
             "categories": cats,
             "date": format_date(entry.get("published", "")),
         })
 
     if skipped:
-        print(f"📅 {skipped} articles hors de la plage de dates (ignorés)")
+        print(f"📅 {skipped} articles hors de la plage de dates ou exclus (ignorés)")
 
     return rows
 
